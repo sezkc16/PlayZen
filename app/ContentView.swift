@@ -32,6 +32,7 @@ struct LibraryView: View {
     @State private var searchText = ""
     @State private var filter: LibraryFilter = .all
     @State private var playingVideo: VideoItem?
+    @State private var playingVLCVideo: VideoItem?
     @State private var alertTitle = ""
     @State private var alertMessage = ""
     @State private var showingAlert = false
