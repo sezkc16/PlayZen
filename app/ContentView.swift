@@ -282,12 +282,10 @@ struct LibraryView: View {
             showingAlert = true
             return
         }
-        if !video.playableInV1 {
-            alertTitle = "MKV Not Supported in v1"
-            alertMessage = "MKV files AVPlayer se nahi chalte. MKV support v2 me VLCKit se aayega. MP4 / MOV / M4V v1 me fully supported hain."
-            showingAlert = true
-            return
-        }
+        if video.fileExtension == "mkv" {
+    playingVLCVideo = video
+    return
+}
         playingVideo = video
     }
 }
