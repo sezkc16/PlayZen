@@ -66,10 +66,13 @@ final class VLCPlayerController: NSObject, ObservableObject, VLCMediaPlayerDeleg
     }
 
     private func tick() {
-        let ms = player.time?.intValue ?? 0
+        // VLCKit 3.7.3: VLCMediaPlayer.time and VLCMedia.length are
+        // NON-optional VLCTime (no '?' allowed). remainingTime is weak,
+        // so it stays optional-chained below.
+        let ms = player.time.intValue
         currentTime = TimeInterval(ms) / 1000
 
-        let lengthMs = player.media?.length?.intValue ?? 0
+        let lengthMs = player.media?.length.intValue ?? 0
         if lengthMs > 0 {
             duration = TimeInterval(lengthMs) / 1000
         } else if let remainingMs = player.remainingTime?.intValue, remainingMs > 0 {
@@ -190,9 +193,14 @@ struct VLCPlayerView: View {
     @State private var subtitlesOn = true
     @State private var selectedSubtitleIndex: Int32 = 0
     @State private var didSetup = false
+    // Local player state (same as PlayerView): SettingsStore has NO
+    // playbackSpeed / volumeBoost / autoResume members — only the
+    // *Enabled toggles (volumeBoostEnabled, autoResumeEnabled, ...).
+    @State private var speed: Double = 1.0
+    @State private var volumeBoost: Double = 100   // 0...200
 
     private var startPosition: TimeInterval {
-        guard settings.autoResume, video.lastPosition > 5,
+        guard settings.autoResumeEnabled, video.lastPosition > 5,
               video.duration > 0, video.lastPosition < video.duration - 10
         else { return 0 }
         return video.lastPosition
@@ -241,8 +249,8 @@ struct VLCPlayerView: View {
             controller.setup(
                 url: url,
                 startAt: startPosition,
-                rate: Float(settings.playbackSpeed),
-                volumeBoost: settings.volumeBoost
+                rate: Float(speed),
+                volumeBoost: volumeBoost
             )
         }
         .onDisappear {
@@ -250,7 +258,8 @@ struct VLCPlayerView: View {
             controller.stop()
             UIDevice.current.setValue(UIInterfaceOrientation.portrait.rawValue, forKey: "orientation")
         }
-        .onChange(of: controller.ended) { _, ended in
+        // 1-parameter onChange (safe form): the old value is unused here.
+        .onChange(of: controller.ended) { ended in
             if ended {
                 saveProgress()
                 withAnimation { showControls = true }
@@ -337,7 +346,7 @@ struct VLCPlayerView: View {
             .font(.caption).foregroundStyle(.white)
 
             HStack(spacing: 16) {
-                Button("\(settings.playbackSpeed, specifier: "%.2g")×") {
+                Button("\(speed, specifier: "%.2g")×") {
                     showSpeedSheet = true
                 }
                 .buttonStyle(.bordered).tint(.orange)
@@ -358,18 +367,18 @@ struct VLCPlayerView: View {
                     Image(systemName: "speaker.fill").foregroundStyle(.white)
                     Slider(
                         value: Binding(
-                            get: { settings.volumeBoost },
+                            get: { volumeBoost },
                             set: { newValue in
-                                settings.volumeBoost = newValue
+                                volumeBoost = newValue
                                 controller.applyVolume(newValue)
                             }
                         ),
                         in: 0...200
                     )
                     .frame(width: 90).tint(.orange)
-                    Text("\(Int(settings.volumeBoost))%")
+                    Text("\(Int(volumeBoost))%")
                         .font(.caption).foregroundStyle(.white)
-                    if settings.volumeBoost > 100 {
+                    if volumeBoost > 100 {
                         Text("BOOST").font(.caption2).bold()
                             .padding(.horizontal, 5).padding(.vertical, 2)
                             .background(.orange).foregroundStyle(.black).clipShape(Capsule())
@@ -393,15 +402,15 @@ struct VLCPlayerView: View {
     private var speedSheet: some View {
         NavigationStack {
             List {
-                ForEach([0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0], id: \.self) { speed in
+                ForEach([0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0], id: \.self) { option in
                     Button {
-                        settings.playbackSpeed = speed
-                        controller.setRate(Float(speed))
+                        speed = option
+                        controller.setRate(Float(option))
                         showSpeedSheet = false
                     } label: {
                         HStack {
-                            Text("\(speed, specifier: "%.2g")×")
-                            if speed == settings.playbackSpeed {
+                            Text("\(option, specifier: "%.2g")×")
+                            if option == speed {
                                 Spacer()
                                 Image(systemName: "checkmark").foregroundStyle(.orange)
                             }
@@ -420,3 +429,99 @@ struct VLCPlayerView: View {
     }
 
     private var subtitlesSheet: some View {
+        NavigationStack {
+            List {
+                Section("Subtitles") {
+                    Toggle("Subtitles On", isOn: $subtitlesOn)
+                        // 1-parameter onChange (safe form): the old value is unused.
+                        .onChange(of: subtitlesOn) { on in
+                            if on {
+                                controller.setSubtitleTrack(index: selectedSubtitleIndex)
+                            } else {
+                                controller.setSubtitleTrack(index: -1)
+                            }
+                        }
+                    Text("VLC shows the MKV's embedded subtitle track, or a sidecar .srt file with the same name as the video. Only one subtitle track at a time — no dual subtitles in the VLC player (v2).")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                if !controller.subtitleTrackNames.isEmpty {
+                    Section("Tracks") {
+                        // Index-based (no tuple-destructuring / tuple key path):
+                        // keeps the type-checker work small and unambiguous.
+                        ForEach(controller.subtitleTrackNames.indices, id: \.self) { i in
+                            Button {
+                                let idx = i < controller.subtitleTrackIndexes.count
+                                    ? controller.subtitleTrackIndexes[i]
+                                    : Int32(i)
+                                selectedSubtitleIndex = idx
+                                subtitlesOn = true
+                                controller.setSubtitleTrack(index: idx)
+                            } label: {
+                                HStack {
+                                    Text(controller.subtitleTrackNames[i])
+                                    if Int32(i) == selectedSubtitleIndex {
+                                        Spacer()
+                                        Image(systemName: "checkmark").foregroundStyle(.orange)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Section {
+                    Text("PiP is AVPlayer-only in v2 — it is not available for MKV files.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle("Subtitles")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { showSubtitlesSheet = false }
+                }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+
+    private var chaptersSheet: some View {
+        NavigationStack {
+            List {
+                if durationBasedChapters.isEmpty {
+                    Text("Chapters appear once the video duration loads.")
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(durationBasedChapters, id: \.0) { chapter in
+                    Button {
+                        controller.seek(to: chapter.1)
+                        showChaptersSheet = false
+                    } label: {
+                        HStack {
+                            Text(chapter.0)
+                            Spacer()
+                            Text(timeString(chapter.1)).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                Text("Time-based chapters (same as the AVPlayer view). Real MKV chapter markers are not read in v2.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            .navigationTitle("Chapters")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { showChaptersSheet = false }
+                }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+
+    private func timeString(_ seconds: TimeInterval) -> String {
+        guard seconds.isFinite, seconds >= 0 else { return "0:00" }
+        let total = Int(seconds)
+        let h = total / 3600
+        let m = (total % 3600) / 60
+        let s = total % 60
+        if h > 0 { return String(format: "%d:%02d:%02d", h, m, s) }
+        return String(format: "%d:%02d", m, s)
+    }
+}
