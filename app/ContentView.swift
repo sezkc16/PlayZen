@@ -128,6 +128,9 @@ struct LibraryView: View {
             .sheet(item: $playingVideo) { video in
                 PlayerView(video: video)
             }
+            .fullScreenCover(item: $playingVLCVideo) { video in
+    VLCPlayerView(video: video)
+}
             .sheet(isPresented: $showingPicker) {
                 DocumentPicker(
                     onPick: { url in
