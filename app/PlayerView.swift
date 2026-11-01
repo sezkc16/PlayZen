@@ -480,7 +480,7 @@ struct PlayerView: View {
             showingAlert = true
             return
         }
-        if controller.canStartPictureInPicture {
+        if controller.isPictureInPicturePossible {
             controller.startPictureInPicture()
         } else {
             alertMessage = "Picture in Picture abhi start nahi ho raha. Video ko pehle play karo, phir dobara try karo."
