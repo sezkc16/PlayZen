@@ -1,0 +1,13 @@
+platform :ios, '17.0'
+
+target 'PlayZen' do
+  use_frameworks!
+
+  # MKV playback — MobileVLCKit 3.7.3 (stable, official VideoLAN release).
+  # Verified: podspec exists in CocoaPods/Specs at
+  # Specs/b/f/7/MobileVLCKit/3.7.3/MobileVLCKit.podspec.json,
+  # source https://download.videolan.org/pub/cocoapods/prod/MobileVLCKit-3.7.3-319ed2c0-79128878.tar.xz
+  # sha256 0d04059906962ddc9a7bd1ebaa12e1f9ae85eb2466116a97a2f46886dd27a0a9,
+  # vendored MobileVLCKit.xcframework. Swift import: `import MobileVLCKit`.
+  pod 'MobileVLCKit', '3.7.3'
+end
