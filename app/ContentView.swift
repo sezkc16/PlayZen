@@ -36,7 +36,6 @@ struct LibraryView: View {
     @State private var showingAlert = false
     @State private var alertTitle = ""
     @State private var alertMessage = ""
-    @State private var showingAlert = false
     @State private var showingPicker = false
     @State private var renameVideo: VideoItem?
     @State private var renameText = ""
