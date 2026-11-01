@@ -22,12 +22,21 @@ jobs:
           xcodegen generate --spec project.yml
           test -d PlayZen.xcodeproj
 
+      - name: Install CocoaPods
+        run: |
+          pod --version || sudo gem install cocoapods
+
+      - name: Install Pods (MobileVLCKit 3.7.3)
+        run: |
+          pod install --repo-update
+          test -d PlayZen.xcworkspace
+
       - name: Build PlayZen
         run: |
           set -o pipefail
 
           xcodebuild \
-            -project PlayZen.xcodeproj \
+            -workspace PlayZen.xcworkspace \
             -scheme PlayZen \
             -configuration Release \
             -sdk iphoneos \
@@ -58,6 +67,12 @@ jobs:
             -c 'Print CFBundleExecutable' "$APP/Info.plist")
 
           codesign --remove-signature "$APP/$EXEC" 2>/dev/null || true
+
+          # Strip signatures from embedded CocoaPods frameworks (MobileVLCKit).
+          for f in "$APP"/Frameworks/*.framework; do
+            [ -d "$f" ] || continue
+            codesign --remove-signature "$f/$(basename "$f" .framework)" 2>/dev/null || true
+          done
 
           find "$APP" -depth -name _CodeSignature \
             -type d -exec rm -rf {} +
