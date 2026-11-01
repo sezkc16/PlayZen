@@ -227,7 +227,7 @@ struct LibraryView: View {
                             Text(Format.time(video.duration))
                                 .font(.caption).foregroundColor(.gray)
                         }
-                        if !video.fileSize.isZero {
+                        if video.fileSize != 0 {
                             Text(Format.fileSize(video.fileSize))
                                 .font(.caption).foregroundColor(.gray)
                         }
