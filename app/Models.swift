@@ -30,7 +30,7 @@ struct VideoItem: Identifiable, Codable, Equatable {
     /// Library but needs VLCKit (planned for v2) and will show an honest
     /// "MKV not supported in v1" alert instead of a black screen.
     var playableInV1: Bool {
-        ["mp4", "mov", "m4v"].contains(fileExtension)
+        ["mp4", "mov", "m4v", "mkv"].contains(fileExtension)
     }
 
     var url: URL? {
