@@ -32,7 +32,7 @@ struct DocumentPicker: UIViewControllerRepresentable {
         let onPick: (URL) -> Void
         let onCancel: () -> Void
 
-        init(onPick: @escaping (URL) -> Void, onCancel: @escaping (URL) -> Void) {
+        init(onPick: @escaping (URL) -> Void, onCancel: @escaping () -> Void) {
             self.onPick = onPick
             self.onCancel = onCancel
         }
