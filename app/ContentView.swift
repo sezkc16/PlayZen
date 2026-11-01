@@ -33,6 +33,7 @@ struct LibraryView: View {
     @State private var filter: LibraryFilter = .all
     @State private var playingVideo: VideoItem?
     @State private var playingVLCVideo: VideoItem?
+    @State private var showingAlert = false
     @State private var alertTitle = ""
     @State private var alertMessage = ""
     @State private var showingAlert = false
@@ -59,6 +60,7 @@ struct LibraryView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
+                    // Continue Watching
                     if !library.continueWatching.isEmpty {
                         Text("Continue Watching")
                             .font(.headline)
@@ -73,6 +75,7 @@ struct LibraryView: View {
                         }
                     }
 
+                    // Filter chips
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             ForEach(LibraryFilter.allCases, id: \.self) { chip in
@@ -88,6 +91,7 @@ struct LibraryView: View {
                         .padding(.horizontal)
                     }
 
+                    // Video list
                     LazyVStack(spacing: 0) {
                         ForEach(filteredVideos) { video in
                             videoRow(video)
@@ -129,8 +133,8 @@ struct LibraryView: View {
                 PlayerView(video: video)
             }
             .fullScreenCover(item: $playingVLCVideo) { video in
-    VLCPlayerView(video: video)
-}
+                VLCPlayerView(video: video)
+            }
             .sheet(isPresented: $showingPicker) {
                 DocumentPicker(
                     onPick: { url in
@@ -173,6 +177,8 @@ struct LibraryView: View {
             .onAppear { library.refresh() }
         }
     }
+
+    // MARK: Rows
 
     private func continueCard(_ video: VideoItem) -> some View {
         Button { openVideo(video) } label: {
@@ -283,9 +289,10 @@ struct LibraryView: View {
             return
         }
         if video.fileExtension == "mkv" {
-    playingVLCVideo = video
-    return
-}
+            // MKV plays in the VLC player (v2) — AVPlayer cannot play MKV.
+            playingVLCVideo = video
+            return
+        }
         playingVideo = video
     }
 }
@@ -384,6 +391,7 @@ struct PlaylistDetailView: View {
     @EnvironmentObject var library: VideoLibrary
     @EnvironmentObject var playlists: PlaylistStore
     @State private var playingVideo: VideoItem?
+    @State private var playingVLCVideo: VideoItem?
 
     var body: some View {
         List {
@@ -395,7 +403,10 @@ struct PlaylistDetailView: View {
                     .padding(.vertical, 24)
             }
             ForEach(items) { video in
-                Button { playingVideo = video } label: {
+                Button {
+                    if video.fileExtension == "mkv" { playingVLCVideo = video }
+                    else { playingVideo = video }
+                } label: {
                     HStack {
                         Image(systemName: "play.fill").foregroundColor(.orange)
                         Text(video.name).lineLimit(1)
@@ -418,6 +429,9 @@ struct PlaylistDetailView: View {
         .navigationTitle(playlist.name)
         .fullScreenCover(item: $playingVideo) { video in
             PlayerView(video: video)
+        }
+        .fullScreenCover(item: $playingVLCVideo) { video in
+            VLCPlayerView(video: video)
         }
     }
 }
