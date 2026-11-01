@@ -235,8 +235,8 @@ struct LibraryView: View {
                             Text(Format.fileSize(video.fileSize))
                                 .font(.caption).foregroundColor(.gray)
                         }
-                        if !video.playableInV1 && !video.isSample {
-                            Text("MKV • v2")
+                        if video.fileExtension == "mkv" && !video.isSample {
+                            Text("MKV")
                                 .font(.caption2).fontWeight(.bold)
                                 .foregroundColor(.yellow)
                         }
