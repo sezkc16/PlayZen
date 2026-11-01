@@ -14,6 +14,7 @@ targets:
       - path: app
 
     info:
+      path: Info.plist
       properties:
         CFBundleDisplayName: PlayZen
         UILaunchScreen: {}
