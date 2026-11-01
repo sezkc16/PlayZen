@@ -1,0 +1,79 @@
+name: Build IPA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: |
+          xcodegen generate --spec project.yml
+          test -d PlayZen.xcodeproj
+
+      - name: Build PlayZen
+        run: |
+          set -o pipefail
+
+          xcodebuild \
+            -project PlayZen.xcodeproj \
+            -scheme PlayZen \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            2>&1 | tee build.log
+
+      - name: Package PlayZen IPA
+        run: |
+          set -e
+
+          SRC=$(find build/Build/Products/Release-iphoneos \
+            -maxdepth 1 -name '*.app' | head -1)
+
+          test -n "$SRC"
+
+          rm -rf Payload
+          mkdir -p Payload
+          cp -R "$SRC" Payload/
+
+          APP="Payload/$(basename "$SRC")"
+          echo "Packaging $APP"
+
+          EXEC=$(/usr/libexec/PlistBuddy \
+            -c 'Print CFBundleExecutable' "$APP/Info.plist")
+
+          codesign --remove-signature "$APP/$EXEC" 2>/dev/null || true
+
+          find "$APP" -depth -name _CodeSignature \
+            -type d -exec rm -rf {} +
+
+          zip -qry PlayZen.ipa Payload
+          ls -lh PlayZen.ipa
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: PlayZen-ipa
+          path: PlayZen.ipa
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
